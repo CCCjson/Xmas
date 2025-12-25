@@ -159,6 +159,7 @@ let fireworks = [];
 let meteors = [];
 let aurora;
 let treeGroup;
+let dancers = [];
 
 // ============ 初始化 ============
 function init() {
@@ -207,6 +208,7 @@ function init() {
   createOrnaments();
   createTinsel();
   createGifts();
+  createDancers();
   createSnow();
   createConfetti();
 
@@ -680,6 +682,222 @@ function createTinsel() {
   }
 }
 
+// ============ 跳舞小人 ============
+class DancingPerson {
+  constructor(photoUrl, posX, posZ, bodyColor, danceStyle) {
+    this.group = new THREE.Group();
+    this.danceStyle = danceStyle; // 不同的舞蹈风格
+    this.time = Math.random() * 100; // 随机起始相位
+
+    // 加载头像纹理
+    const textureLoader = new THREE.TextureLoader();
+    const headTexture = textureLoader.load(photoUrl);
+
+    // 头部 - 圆形平面贴照片
+    const headGeo = new THREE.CircleGeometry(0.35, 32);
+    const headMat = new THREE.MeshBasicMaterial({
+      map: headTexture,
+      side: THREE.DoubleSide,
+    });
+    this.head = new THREE.Mesh(headGeo, headMat);
+    this.head.position.y = 1.4;
+    this.group.add(this.head);
+
+    // 头部背面（头发颜色）
+    const headBackGeo = new THREE.CircleGeometry(0.35, 32);
+    const headBackMat = new THREE.MeshStandardMaterial({
+      color: 0x332211,
+      side: THREE.DoubleSide,
+    });
+    const headBack = new THREE.Mesh(headBackGeo, headBackMat);
+    headBack.position.y = 1.4;
+    headBack.position.z = -0.01;
+    headBack.rotation.y = Math.PI;
+    this.group.add(headBack);
+
+    // 圣诞帽
+    const hatGeo = new THREE.ConeGeometry(0.25, 0.5, 16);
+    const hatMat = new THREE.MeshStandardMaterial({
+      color: 0xff0000,
+      roughness: 0.6,
+    });
+    this.hat = new THREE.Mesh(hatGeo, hatMat);
+    this.hat.position.y = 1.9;
+    this.hat.rotation.z = 0.3;
+    this.group.add(this.hat);
+
+    // 帽子白边
+    const hatBrimGeo = new THREE.TorusGeometry(0.28, 0.08, 8, 16);
+    const hatBrimMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      roughness: 0.8,
+    });
+    const hatBrim = new THREE.Mesh(hatBrimGeo, hatBrimMat);
+    hatBrim.position.y = 1.65;
+    hatBrim.rotation.x = Math.PI / 2;
+    this.group.add(hatBrim);
+
+    // 帽子球球
+    const pompomGeo = new THREE.SphereGeometry(0.1, 8, 8);
+    const pompomMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+    this.pompom = new THREE.Mesh(pompomGeo, pompomMat);
+    this.pompom.position.set(0.15, 2.1, 0);
+    this.group.add(this.pompom);
+
+    // 身体 - 椭圆形
+    const bodyGeo = new THREE.CapsuleGeometry(0.25, 0.5, 8, 16);
+    const bodyMat = new THREE.MeshStandardMaterial({
+      color: bodyColor,
+      roughness: 0.7,
+    });
+    this.body = new THREE.Mesh(bodyGeo, bodyMat);
+    this.body.position.y = 0.8;
+    this.group.add(this.body);
+
+    // 左手臂
+    this.leftArm = new THREE.Group();
+    const armGeo = new THREE.CapsuleGeometry(0.06, 0.35, 4, 8);
+    const armMat = new THREE.MeshStandardMaterial({ color: bodyColor });
+    const leftArmMesh = new THREE.Mesh(armGeo, armMat);
+    leftArmMesh.position.y = -0.2;
+    this.leftArm.add(leftArmMesh);
+    this.leftArm.position.set(-0.35, 1.0, 0);
+    this.group.add(this.leftArm);
+
+    // 右手臂
+    this.rightArm = new THREE.Group();
+    const rightArmMesh = new THREE.Mesh(armGeo, armMat);
+    rightArmMesh.position.y = -0.2;
+    this.rightArm.add(rightArmMesh);
+    this.rightArm.position.set(0.35, 1.0, 0);
+    this.group.add(this.rightArm);
+
+    // 左腿
+    this.leftLeg = new THREE.Group();
+    const legGeo = new THREE.CapsuleGeometry(0.08, 0.35, 4, 8);
+    const legMat = new THREE.MeshStandardMaterial({ color: 0x2244aa });
+    const leftLegMesh = new THREE.Mesh(legGeo, legMat);
+    leftLegMesh.position.y = -0.2;
+    this.leftLeg.add(leftLegMesh);
+    this.leftLeg.position.set(-0.12, 0.4, 0);
+    this.group.add(this.leftLeg);
+
+    // 右腿
+    this.rightLeg = new THREE.Group();
+    const rightLegMesh = new THREE.Mesh(legGeo, legMat);
+    rightLegMesh.position.y = -0.2;
+    this.rightLeg.add(rightLegMesh);
+    this.rightLeg.position.set(0.12, 0.4, 0);
+    this.group.add(this.rightLeg);
+
+    // 鞋子
+    const shoeGeo = new THREE.BoxGeometry(0.15, 0.08, 0.22);
+    const shoeMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
+    this.leftShoe = new THREE.Mesh(shoeGeo, shoeMat);
+    this.leftShoe.position.set(-0.12, 0.04, 0.03);
+    this.group.add(this.leftShoe);
+
+    this.rightShoe = new THREE.Mesh(shoeGeo, shoeMat);
+    this.rightShoe.position.set(0.12, 0.04, 0.03);
+    this.group.add(this.rightShoe);
+
+    // 设置位置
+    this.group.position.set(posX, -0.45, posZ);
+    this.baseY = -0.45;
+
+    scene.add(this.group);
+  }
+
+  update(time) {
+    this.time += 0.016; // 约60fps
+    const t = this.time;
+
+    // 让头部始终面向相机
+    if (camera) {
+      this.head.lookAt(camera.position);
+    }
+
+    if (this.danceStyle === 1) {
+      // 舞蹈风格1：疯狂蹦跳 + 手臂乱挥
+
+      // 上下大幅弹跳
+      const bounce = Math.abs(Math.sin(t * 8)) * 0.3;
+      this.group.position.y = this.baseY + bounce;
+
+      // 左右摇摆
+      this.group.rotation.z = Math.sin(t * 6) * 0.2;
+      this.body.rotation.z = Math.sin(t * 8) * 0.15;
+
+      // 手臂疯狂挥舞（不同频率，看起来更乱）
+      this.leftArm.rotation.z = Math.sin(t * 10) * 1.5 + 0.5;
+      this.leftArm.rotation.x = Math.cos(t * 7) * 0.8;
+      this.rightArm.rotation.z = Math.cos(t * 9) * 1.5 - 0.5;
+      this.rightArm.rotation.x = Math.sin(t * 8) * 0.8;
+
+      // 腿部踢腿
+      this.leftLeg.rotation.x = Math.sin(t * 8) * 0.8;
+      this.rightLeg.rotation.x = Math.sin(t * 8 + Math.PI) * 0.8;
+
+      // 偶尔原地转圈
+      if (Math.sin(t * 0.5) > 0.8) {
+        this.group.rotation.y += 0.1;
+      }
+
+      // 帽子甩动
+      this.hat.rotation.z = 0.3 + Math.sin(t * 10) * 0.3;
+      this.pompom.position.x = 0.15 + Math.sin(t * 12) * 0.1;
+
+    } else {
+      // 舞蹈风格2：扭屁股 + 手臂波浪
+
+      // 小幅弹跳
+      const bounce = Math.abs(Math.sin(t * 6)) * 0.15;
+      this.group.position.y = this.baseY + bounce;
+
+      // 扭动身体
+      this.body.rotation.y = Math.sin(t * 5) * 0.4;
+      this.body.rotation.x = Math.sin(t * 4) * 0.1;
+
+      // 手臂波浪舞
+      this.leftArm.rotation.z = Math.sin(t * 4) * 0.8 + 1.2;
+      this.leftArm.rotation.y = Math.sin(t * 4 + 1) * 0.5;
+      this.rightArm.rotation.z = Math.sin(t * 4 + 2) * 0.8 - 1.2;
+      this.rightArm.rotation.y = Math.sin(t * 4 + 3) * 0.5;
+
+      // 腿部交替抬起（像在原地踏步）
+      this.leftLeg.rotation.x = Math.max(0, Math.sin(t * 6)) * 0.6;
+      this.rightLeg.rotation.x = Math.max(0, Math.sin(t * 6 + Math.PI)) * 0.6;
+
+      // 鞋子跟着腿动
+      this.leftShoe.position.y = 0.04 + Math.max(0, Math.sin(t * 6)) * 0.15;
+      this.leftShoe.position.z = 0.03 + Math.max(0, Math.sin(t * 6)) * 0.1;
+      this.rightShoe.position.y = 0.04 + Math.max(0, Math.sin(t * 6 + Math.PI)) * 0.15;
+      this.rightShoe.position.z = 0.03 + Math.max(0, Math.sin(t * 6 + Math.PI)) * 0.1;
+
+      // 头部左右摇
+      this.head.rotation.z = Math.sin(t * 5) * 0.2;
+
+      // 帽子跟随晃动
+      this.hat.rotation.z = 0.3 + Math.sin(t * 5) * 0.15;
+    }
+  }
+}
+
+function createDancers() {
+  // 清除旧的
+  dancers.forEach(d => scene.remove(d.group));
+  dancers = [];
+
+  // 创建两个跳舞小人
+  // cjs - 左边，红色衣服，舞蹈风格1（疯狂蹦跳）
+  const dancer1 = new DancingPerson('./cjs.jpg', -2.5, 4, 0xcc2222, 1);
+  dancers.push(dancer1);
+
+  // wb - 右边，绿色衣服，舞蹈风格2（扭动波浪）
+  const dancer2 = new DancingPerson('./wb.jpg', 2.5, 4, 0x22aa22, 2);
+  dancers.push(dancer2);
+}
+
 // ============ 礼物盒 ============
 function createGifts() {
   gifts.forEach(g => scene.remove(g));
@@ -1081,6 +1299,11 @@ function animate() {
   ornaments.forEach(ornament => {
     const swing = Math.sin(time * ornament.userData.swingSpeed + ornament.userData.phase) * 0.02;
     ornament.position.x += swing * 0.1;
+  });
+
+  // 跳舞小人动画
+  dancers.forEach(dancer => {
+    dancer.update(time);
   });
 
   // 雪花飘落
