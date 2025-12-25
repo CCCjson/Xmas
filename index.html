@@ -131,8 +131,10 @@ const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 const CONFIG = {
   snowCount: isMobile ? 200 : 400,
   confettiCount: isMobile ? 80 : 150,
-  lightCount: isMobile ? 50 : 80,
+  lightCount: isMobile ? 120 : 200,  // 大幅增加彩灯数量
+  ornamentCount: isMobile ? 30 : 50, // 装饰球数量
   starCount: isMobile ? 100 : 200,
+  tinselCount: isMobile ? 6 : 10,    // 金银丝带数量
 };
 
 // ============ 全局变量 ============
@@ -149,11 +151,14 @@ let confettiPositions, confettiVelocities, confettiRotations;
 
 // 对象
 let treeLights = [];
+let ornaments = [];
+let tinselLines = [];
 let star;
 let gifts = [];
 let fireworks = [];
 let meteors = [];
 let aurora;
+let treeGroup;
 
 // ============ 初始化 ============
 function init() {
@@ -199,6 +204,8 @@ function init() {
   createTree();
   createStar();
   createTreeLights();
+  createOrnaments();
+  createTinsel();
   createGifts();
   createSnow();
   createConfetti();
@@ -231,24 +238,43 @@ function init() {
 }
 
 function setupLights() {
-  // 环境光
-  const ambient = new THREE.AmbientLight(0x404060, 0.4);
+  // 环境光 - 略微增强
+  const ambient = new THREE.AmbientLight(0x404060, 0.5);
   scene.add(ambient);
 
-  // 主光源
-  const mainLight = new THREE.DirectionalLight(0xffeedd, 0.8);
+  // 主光源 - 从右上方照射
+  const mainLight = new THREE.DirectionalLight(0xffeedd, 0.6);
   mainLight.position.set(5, 10, 5);
   scene.add(mainLight);
 
-  // 底部暖光
-  const warmLight = new THREE.PointLight(0xff8844, 0.6, 20);
-  warmLight.position.set(0, 0.5, 3);
+  // ✨ 暖光照射在树上 - 从前方斜上方
+  const warmSpotLight = new THREE.SpotLight(0xffaa55, 1.5, 20, Math.PI / 6, 0.5, 1);
+  warmSpotLight.position.set(3, 8, 8);
+  warmSpotLight.target.position.set(0, 3, 0);
+  scene.add(warmSpotLight);
+  scene.add(warmSpotLight.target);
+
+  // 第二束暖光 - 从左侧
+  const warmSpotLight2 = new THREE.SpotLight(0xffcc77, 1.0, 18, Math.PI / 5, 0.6, 1);
+  warmSpotLight2.position.set(-4, 6, 6);
+  warmSpotLight2.target.position.set(0, 2, 0);
+  scene.add(warmSpotLight2);
+  scene.add(warmSpotLight2.target);
+
+  // 底部暖光 - 礼物区域
+  const warmLight = new THREE.PointLight(0xff8844, 0.8, 15);
+  warmLight.position.set(0, 0.5, 4);
   scene.add(warmLight);
 
-  // 顶部星光
-  const starLight = new THREE.PointLight(0xffffaa, 1, 15);
-  starLight.position.set(0, 7, 0);
+  // 顶部星光 - 更亮更温暖
+  const starLight = new THREE.PointLight(0xffffaa, 1.5, 12);
+  starLight.position.set(0, 7.5, 0);
   scene.add(starLight);
+
+  // 背光 - 增加层次感
+  const backLight = new THREE.PointLight(0x4466ff, 0.3, 20);
+  backLight.position.set(0, 5, -8);
+  scene.add(backLight);
 }
 
 // ============ 极光效果 ============
@@ -373,51 +399,99 @@ function createGround() {
 
 // ============ 圣诞树 ============
 function createTree() {
+  treeGroup = new THREE.Group();
+
+  // 更丰富的树叶材质
   const treeMaterial = new THREE.MeshStandardMaterial({
-    color: 0x0d5c2e,
-    roughness: 0.8,
-    metalness: 0.1,
+    color: 0x1a7a3a,
+    roughness: 0.7,
+    metalness: 0.05,
   });
 
   const darkTreeMaterial = new THREE.MeshStandardMaterial({
-    color: 0x0a4a24,
-    roughness: 0.8,
-    metalness: 0.1,
+    color: 0x0f5528,
+    roughness: 0.75,
+    metalness: 0.05,
   });
 
-  // 多层树冠
+  const lightTreeMaterial = new THREE.MeshStandardMaterial({
+    color: 0x2a9a4a,
+    roughness: 0.65,
+    metalness: 0.05,
+  });
+
+  // 更多层次的树冠 - 7层，更加饱满
   const layers = [
-    { y: 5.5, radius: 0.8, height: 2 },
-    { y: 4.2, radius: 1.3, height: 2.2 },
-    { y: 2.7, radius: 1.9, height: 2.5 },
-    { y: 1.0, radius: 2.5, height: 2.8 },
+    { y: 6.2, radius: 0.5, height: 1.2 },   // 顶部尖
+    { y: 5.6, radius: 0.8, height: 1.4 },
+    { y: 4.8, radius: 1.1, height: 1.6 },
+    { y: 3.9, radius: 1.5, height: 1.8 },
+    { y: 2.9, radius: 1.9, height: 2.0 },
+    { y: 1.8, radius: 2.3, height: 2.2 },
+    { y: 0.6, radius: 2.8, height: 2.4 },   // 底部宽
   ];
 
+  const materials = [treeMaterial, darkTreeMaterial, lightTreeMaterial];
+
   layers.forEach((layer, i) => {
+    // 主圆锥
     const geo = new THREE.ConeGeometry(layer.radius, layer.height, 32);
-    const mat = i % 2 === 0 ? treeMaterial : darkTreeMaterial;
+    const mat = materials[i % 3];
     const cone = new THREE.Mesh(geo, mat);
     cone.position.y = layer.y;
     cone.castShadow = true;
-    scene.add(cone);
+    treeGroup.add(cone);
+
+    // 添加一些随机的小突起，让树看起来更自然
+    if (i > 0 && i < layers.length - 1) {
+      const bumpCount = 5 + i * 2;
+      for (let j = 0; j < bumpCount; j++) {
+        const angle = (j / bumpCount) * Math.PI * 2 + Math.random() * 0.3;
+        const bumpGeo = new THREE.ConeGeometry(layer.radius * 0.25, layer.height * 0.4, 8);
+        const bump = new THREE.Mesh(bumpGeo, materials[(i + j) % 3]);
+        const r = layer.radius * 0.85;
+        bump.position.set(
+          Math.cos(angle) * r,
+          layer.y - layer.height * 0.1 + Math.random() * 0.2,
+          Math.sin(angle) * r
+        );
+        bump.rotation.x = (Math.random() - 0.5) * 0.3;
+        bump.rotation.z = (Math.random() - 0.5) * 0.3;
+        treeGroup.add(bump);
+      }
+    }
   });
 
-  // 树干
-  const trunkGeo = new THREE.CylinderGeometry(0.3, 0.4, 1.2, 16);
+  // 树干 - 更粗壮，有纹理感
+  const trunkGeo = new THREE.CylinderGeometry(0.25, 0.4, 1.4, 16);
   const trunkMat = new THREE.MeshStandardMaterial({
+    color: 0x5a3825,
+    roughness: 0.95,
+    metalness: 0,
+  });
+  const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+  trunk.position.y = -0.3;
+  treeGroup.add(trunk);
+
+  // 树根装饰
+  const rootGeo = new THREE.TorusGeometry(0.5, 0.15, 8, 16);
+  const rootMat = new THREE.MeshStandardMaterial({
     color: 0x4a3020,
     roughness: 0.9,
   });
-  const trunk = new THREE.Mesh(trunkGeo, trunkMat);
-  trunk.position.y = -0.1;
-  scene.add(trunk);
+  const root = new THREE.Mesh(rootGeo, rootMat);
+  root.position.y = -0.45;
+  root.rotation.x = Math.PI / 2;
+  treeGroup.add(root);
+
+  scene.add(treeGroup);
 }
 
 // ============ 树顶星星 ============
 function createStar() {
   const starShape = new THREE.Shape();
-  const outerRadius = 0.5;
-  const innerRadius = 0.2;
+  const outerRadius = 0.6;
+  const innerRadius = 0.25;
   const spikes = 5;
 
   for (let i = 0; i < spikes * 2; i++) {
@@ -430,31 +504,42 @@ function createStar() {
   }
   starShape.closePath();
 
-  const extrudeSettings = { depth: 0.15, bevelEnabled: true, bevelSize: 0.05, bevelThickness: 0.05 };
+  const extrudeSettings = { depth: 0.2, bevelEnabled: true, bevelSize: 0.08, bevelThickness: 0.08 };
   const starGeo = new THREE.ExtrudeGeometry(starShape, extrudeSettings);
   const starMat = new THREE.MeshStandardMaterial({
     color: 0xffd700,
-    emissive: 0xffaa00,
-    emissiveIntensity: 0.8,
-    roughness: 0.3,
-    metalness: 0.8,
+    emissive: 0xffcc00,
+    emissiveIntensity: 1.2,
+    roughness: 0.2,
+    metalness: 0.9,
   });
 
   star = new THREE.Mesh(starGeo, starMat);
-  star.position.set(0, 6.8, 0);
+  star.position.set(0, 7.0, 0);
   star.rotation.y = Math.PI / 2;
   scene.add(star);
 
-  // 星星光晕
-  const glowGeo = new THREE.SphereGeometry(0.6, 16, 16);
+  // 多层光晕效果
+  const glowGeo = new THREE.SphereGeometry(0.5, 16, 16);
   const glowMat = new THREE.MeshBasicMaterial({
-    color: 0xffdd44,
+    color: 0xffee66,
     transparent: true,
-    opacity: 0.3,
+    opacity: 0.4,
   });
   const glow = new THREE.Mesh(glowGeo, glowMat);
   glow.position.copy(star.position);
   scene.add(glow);
+
+  // 外层柔和光晕
+  const outerGlowGeo = new THREE.SphereGeometry(1.0, 16, 16);
+  const outerGlowMat = new THREE.MeshBasicMaterial({
+    color: 0xffdd44,
+    transparent: true,
+    opacity: 0.15,
+  });
+  const outerGlow = new THREE.Mesh(outerGlowGeo, outerGlowMat);
+  outerGlow.position.copy(star.position);
+  scene.add(outerGlow);
 }
 
 // ============ 彩灯 ============
@@ -462,19 +547,29 @@ function createTreeLights() {
   treeLights.forEach(light => scene.remove(light));
   treeLights = [];
 
-  const colors = [0xff4444, 0x44ff44, 0x4444ff, 0xffff44, 0xff44ff, 0x44ffff, 0xffffff];
+  const colors = [
+    0xff3333, 0xff6633, 0xffcc00, // 暖色
+    0x33ff66, 0x33ffcc,           // 绿色
+    0x3366ff, 0x6633ff, 0xff33ff, // 冷色
+    0xffffff, 0xffffcc,           // 白色
+  ];
 
+  // 更密集的彩灯分布
   for (let i = 0; i < CONFIG.lightCount; i++) {
-    const t = Math.random();
-    const y = 0.5 + t * 5.5;
-    const maxRadius = 2.5 * (1 - t * 0.7);
-    const angle = Math.random() * Math.PI * 2;
-    const radius = maxRadius * (0.7 + Math.random() * 0.3);
+    // 均匀分布在树的各层
+    const t = i / CONFIG.lightCount;
+    const y = 0.3 + t * 6.2;
+
+    // 根据高度计算半径（树的锥形）
+    const treeRadius = 2.8 * (1 - t * 0.82);
+    const angle = (i * 2.39996) + Math.random() * 0.5; // 黄金角度分布
+    const radius = treeRadius * (0.85 + Math.random() * 0.15);
 
     const x = Math.cos(angle) * radius;
     const z = Math.sin(angle) * radius;
 
-    const geometry = new THREE.SphereGeometry(0.08, 8, 8);
+    // 彩灯球体 - 更大更明显
+    const geometry = new THREE.SphereGeometry(0.06 + Math.random() * 0.04, 8, 8);
     const color = colors[Math.floor(Math.random() * colors.length)];
     const material = new THREE.MeshBasicMaterial({
       color: color,
@@ -486,11 +581,102 @@ function createTreeLights() {
     light.userData = {
       baseColor: color,
       phase: Math.random() * Math.PI * 2,
-      speed: 1 + Math.random() * 2,
+      speed: 1.5 + Math.random() * 2.5,
     };
 
     scene.add(light);
     treeLights.push(light);
+  }
+}
+
+// ============ 装饰球 ============
+function createOrnaments() {
+  ornaments.forEach(o => scene.remove(o));
+  ornaments = [];
+
+  const ornamentColors = [
+    { color: 0xff0000, emissive: 0x330000 }, // 红
+    { color: 0xffd700, emissive: 0x332200 }, // 金
+    { color: 0xc0c0c0, emissive: 0x222222 }, // 银
+    { color: 0x0066ff, emissive: 0x001133 }, // 蓝
+    { color: 0xff00ff, emissive: 0x220022 }, // 紫
+    { color: 0x00ff88, emissive: 0x002211 }, // 绿
+  ];
+
+  for (let i = 0; i < CONFIG.ornamentCount; i++) {
+    const t = Math.random();
+    const y = 0.5 + t * 5.8;
+    const treeRadius = 2.6 * (1 - t * 0.8);
+    const angle = Math.random() * Math.PI * 2;
+    const radius = treeRadius * (0.75 + Math.random() * 0.25);
+
+    const x = Math.cos(angle) * radius;
+    const z = Math.sin(angle) * radius;
+
+    // 装饰球 - 有光泽的大球
+    const size = 0.12 + Math.random() * 0.1;
+    const geometry = new THREE.SphereGeometry(size, 16, 16);
+    const colorData = ornamentColors[Math.floor(Math.random() * ornamentColors.length)];
+    const material = new THREE.MeshStandardMaterial({
+      color: colorData.color,
+      emissive: colorData.emissive,
+      emissiveIntensity: 0.3,
+      roughness: 0.2,
+      metalness: 0.8,
+    });
+
+    const ornament = new THREE.Mesh(geometry, material);
+    ornament.position.set(x, y, z);
+    ornament.userData = {
+      phase: Math.random() * Math.PI * 2,
+      swingSpeed: 0.5 + Math.random() * 0.5,
+    };
+
+    scene.add(ornament);
+    ornaments.push(ornament);
+  }
+}
+
+// ============ 金银丝带/彩带缠绕 ============
+function createTinsel() {
+  tinselLines.forEach(t => scene.remove(t));
+  tinselLines = [];
+
+  const tinselColors = [0xffd700, 0xc0c0c0, 0xff6666, 0x66ff66];
+
+  for (let t = 0; t < CONFIG.tinselCount; t++) {
+    const points = [];
+    const startAngle = (t / CONFIG.tinselCount) * Math.PI * 2;
+    const rotations = 2 + Math.random(); // 缠绕圈数
+
+    // 螺旋缠绕
+    for (let i = 0; i <= 60; i++) {
+      const progress = i / 60;
+      const y = 0.5 + progress * 6;
+      const treeRadius = 2.7 * (1 - progress * 0.8);
+      const angle = startAngle + progress * Math.PI * 2 * rotations;
+      const r = treeRadius * (0.9 + Math.sin(progress * 10) * 0.1);
+
+      points.push(new THREE.Vector3(
+        Math.cos(angle) * r,
+        y,
+        Math.sin(angle) * r
+      ));
+    }
+
+    const curve = new THREE.CatmullRomCurve3(points);
+    const geometry = new THREE.TubeGeometry(curve, 80, 0.03, 6, false);
+    const material = new THREE.MeshStandardMaterial({
+      color: tinselColors[t % tinselColors.length],
+      emissive: tinselColors[t % tinselColors.length],
+      emissiveIntensity: 0.2,
+      roughness: 0.3,
+      metalness: 0.7,
+    });
+
+    const tinsel = new THREE.Mesh(geometry, material);
+    scene.add(tinsel);
+    tinselLines.push(tinsel);
   }
 }
 
@@ -821,6 +1007,8 @@ function onTap(event) {
 
 function regenerate() {
   createTreeLights();
+  createOrnaments();
+  createTinsel();
   createGifts();
   createSnow();
   createConfetti();
@@ -887,6 +1075,12 @@ function animate() {
   // 礼物轻微弹跳
   gifts.forEach(gift => {
     gift.position.y = gift.userData.baseY + Math.sin(time * 2 + gift.userData.bouncePhase) * 0.05;
+  });
+
+  // 装饰球轻微摇摆
+  ornaments.forEach(ornament => {
+    const swing = Math.sin(time * ornament.userData.swingSpeed + ornament.userData.phase) * 0.02;
+    ornament.position.x += swing * 0.1;
   });
 
   // 雪花飘落
