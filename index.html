@@ -110,6 +110,10 @@
       <button class="btn" id="btn-pause">⏸️ 暂停</button>
       <button class="btn" id="btn-music">🎵 音乐</button>
       <button class="btn" id="btn-reset">🔄 视角</button>
+      <label class="btn" id="btn-upload">
+        📷 添加小人
+        <input type="file" id="photo-input" accept="image/*" style="display:none" multiple>
+      </label>
     </div>
   </div>
 
@@ -222,6 +226,7 @@ function init() {
   document.getElementById('btn-pause').addEventListener('click', togglePause);
   document.getElementById('btn-music').addEventListener('click', toggleMusic);
   document.getElementById('btn-reset').addEventListener('click', resetCamera);
+  document.getElementById('photo-input').addEventListener('change', handlePhotoUpload);
 
   // 隐藏加载界面
   setTimeout(() => {
@@ -682,7 +687,7 @@ function createTinsel() {
   }
 }
 
-// ============ 跳舞小人（简化线条版） ============
+// ============ 跳舞小人（发光线条版） ============
 class DancingPerson {
   constructor(photoUrl, posX, posZ, lineColor, danceStyle) {
     this.group = new THREE.Group();
@@ -690,14 +695,18 @@ class DancingPerson {
     this.time = Math.random() * 100;
     this.lineColor = lineColor;
 
-    // 线条材质
-    const lineMat = new THREE.LineBasicMaterial({ color: lineColor, linewidth: 3 });
+    // 发光线条材质 - 使用 MeshBasicMaterial 模拟发光
+    const glowMat = new THREE.MeshBasicMaterial({
+      color: lineColor,
+      transparent: true,
+      opacity: 0.9,
+    });
 
     // 加载头像纹理
     const textureLoader = new THREE.TextureLoader();
     const headTexture = textureLoader.load(photoUrl);
 
-    // 头部 - 圆形照片（简化段数）
+    // 头部 - 圆形照片
     const headGeo = new THREE.CircleGeometry(0.4, 16);
     const headMat = new THREE.MeshBasicMaterial({
       map: headTexture,
@@ -707,39 +716,71 @@ class DancingPerson {
     this.head.position.y = 1.6;
     this.group.add(this.head);
 
-    // 身体线条（脖子到臀部）
-    const bodyPoints = [new THREE.Vector3(0, 1.2, 0), new THREE.Vector3(0, 0.4, 0)];
-    const bodyGeo = new THREE.BufferGeometry().setFromPoints(bodyPoints);
-    this.bodyLine = new THREE.Line(bodyGeo, lineMat);
-    this.group.add(this.bodyLine);
+    // 头部发光边框
+    const headRingGeo = new THREE.RingGeometry(0.38, 0.45, 24);
+    const headRingMat = new THREE.MeshBasicMaterial({
+      color: lineColor,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.8,
+    });
+    this.headRing = new THREE.Mesh(headRingGeo, headRingMat);
+    this.headRing.position.y = 1.6;
+    this.group.add(this.headRing);
 
-    // 左手臂（肩膀到手）
-    this.leftArmPoints = [new THREE.Vector3(0, 0, 0), new THREE.Vector3(-0.5, -0.4, 0)];
-    const leftArmGeo = new THREE.BufferGeometry().setFromPoints(this.leftArmPoints);
-    this.leftArm = new THREE.Line(leftArmGeo, lineMat);
-    this.leftArm.position.set(0, 1.1, 0);
+    // 身体 - 用粗的发光条带代替线条
+    const bodyGeo = new THREE.PlaneGeometry(0.12, 0.8);
+    this.body = new THREE.Mesh(bodyGeo, glowMat);
+    this.body.position.y = 0.8;
+    this.group.add(this.body);
+
+    // 左手臂 - 发光条带
+    const armGeo = new THREE.PlaneGeometry(0.08, 0.5);
+    this.leftArm = new THREE.Mesh(armGeo, glowMat);
+    this.leftArm.position.set(-0.25, 0.85, 0);
+    this.leftArm.rotation.z = 0.5;
     this.group.add(this.leftArm);
 
     // 右手臂
-    this.rightArmPoints = [new THREE.Vector3(0, 0, 0), new THREE.Vector3(0.5, -0.4, 0)];
-    const rightArmGeo = new THREE.BufferGeometry().setFromPoints(this.rightArmPoints);
-    this.rightArm = new THREE.Line(rightArmGeo, lineMat);
-    this.rightArm.position.set(0, 1.1, 0);
+    this.rightArm = new THREE.Mesh(armGeo, glowMat);
+    this.rightArm.position.set(0.25, 0.85, 0);
+    this.rightArm.rotation.z = -0.5;
     this.group.add(this.rightArm);
 
-    // 左腿
-    this.leftLegPoints = [new THREE.Vector3(0, 0, 0), new THREE.Vector3(-0.15, -0.55, 0)];
-    const leftLegGeo = new THREE.BufferGeometry().setFromPoints(this.leftLegPoints);
-    this.leftLeg = new THREE.Line(leftLegGeo, lineMat);
-    this.leftLeg.position.set(-0.08, 0.4, 0);
+    // 左腿 - 发光条带
+    const legGeo = new THREE.PlaneGeometry(0.1, 0.55);
+    this.leftLeg = new THREE.Mesh(legGeo, glowMat);
+    this.leftLeg.position.set(-0.1, 0.12, 0);
+    this.leftLeg.rotation.z = 0.15;
     this.group.add(this.leftLeg);
 
     // 右腿
-    this.rightLegPoints = [new THREE.Vector3(0, 0, 0), new THREE.Vector3(0.15, -0.55, 0)];
-    const rightLegGeo = new THREE.BufferGeometry().setFromPoints(this.rightLegPoints);
-    this.rightLeg = new THREE.Line(rightLegGeo, lineMat);
-    this.rightLeg.position.set(0.08, 0.4, 0);
+    this.rightLeg = new THREE.Mesh(legGeo, glowMat);
+    this.rightLeg.position.set(0.1, 0.12, 0);
+    this.rightLeg.rotation.z = -0.15;
     this.group.add(this.rightLeg);
+
+    // 手部发光球
+    const handGeo = new THREE.CircleGeometry(0.06, 8);
+    const handMat = new THREE.MeshBasicMaterial({ color: 0xffddaa, side: THREE.DoubleSide });
+    this.leftHand = new THREE.Mesh(handGeo, handMat);
+    this.leftHand.position.set(-0.45, 0.65, 0);
+    this.group.add(this.leftHand);
+
+    this.rightHand = new THREE.Mesh(handGeo, handMat);
+    this.rightHand.position.set(0.45, 0.65, 0);
+    this.group.add(this.rightHand);
+
+    // 脚部发光
+    const footGeo = new THREE.CircleGeometry(0.08, 8);
+    const footMat = new THREE.MeshBasicMaterial({ color: 0x333333, side: THREE.DoubleSide });
+    this.leftFoot = new THREE.Mesh(footGeo, footMat);
+    this.leftFoot.position.set(-0.12, -0.15, 0);
+    this.group.add(this.leftFoot);
+
+    this.rightFoot = new THREE.Mesh(footGeo, footMat);
+    this.rightFoot.position.set(0.12, -0.15, 0);
+    this.group.add(this.rightFoot);
 
     // 设置位置
     this.group.position.set(posX, -0.45, posZ);
@@ -748,29 +789,14 @@ class DancingPerson {
     scene.add(this.group);
   }
 
-  // 更新手臂线条端点
-  updateArmPoints(arm, endX, endY) {
-    const positions = arm.geometry.attributes.position.array;
-    positions[3] = endX;
-    positions[4] = endY;
-    arm.geometry.attributes.position.needsUpdate = true;
-  }
-
-  // 更新腿部线条端点
-  updateLegPoints(leg, endX, endY) {
-    const positions = leg.geometry.attributes.position.array;
-    positions[3] = endX;
-    positions[4] = endY;
-    leg.geometry.attributes.position.needsUpdate = true;
-  }
-
   update(time) {
     this.time += 0.016;
     const t = this.time;
 
-    // 头部始终面向相机
+    // 头部和边框始终面向相机
     if (camera) {
       this.head.lookAt(camera.position);
+      this.headRing.lookAt(camera.position);
     }
 
     if (this.danceStyle === 1) {
@@ -782,26 +808,32 @@ class DancingPerson {
 
       // 左右摇摆
       this.group.rotation.z = Math.sin(t * 6) * 0.15;
+      this.body.rotation.z = Math.sin(t * 8) * 0.1;
 
-      // 手臂疯狂挥舞 - 更新端点位置
-      const leftArmAngle = Math.sin(t * 10) * 1.2;
-      this.updateArmPoints(this.leftArm,
-        -0.5 * Math.cos(leftArmAngle),
-        -0.4 * Math.sin(leftArmAngle) - 0.2
-      );
+      // 手臂疯狂挥舞
+      this.leftArm.rotation.z = Math.sin(t * 10) * 1.2 + 0.8;
+      this.leftArm.position.x = -0.2 + Math.sin(t * 10) * 0.1;
+      this.leftArm.position.y = 0.85 + Math.cos(t * 10) * 0.15;
 
-      const rightArmAngle = Math.cos(t * 9) * 1.2;
-      this.updateArmPoints(this.rightArm,
-        0.5 * Math.cos(rightArmAngle),
-        -0.4 * Math.sin(rightArmAngle) - 0.2
-      );
+      this.rightArm.rotation.z = Math.cos(t * 9) * 1.2 - 0.8;
+      this.rightArm.position.x = 0.2 + Math.cos(t * 9) * 0.1;
+      this.rightArm.position.y = 0.85 + Math.sin(t * 9) * 0.15;
+
+      // 手跟随手臂
+      this.leftHand.position.x = -0.2 + Math.sin(this.leftArm.rotation.z) * 0.4;
+      this.leftHand.position.y = 0.85 - Math.cos(this.leftArm.rotation.z) * 0.4;
+      this.rightHand.position.x = 0.2 - Math.sin(this.rightArm.rotation.z) * 0.4;
+      this.rightHand.position.y = 0.85 + Math.cos(this.rightArm.rotation.z) * 0.4;
 
       // 腿部踢腿
-      const leftLegKick = Math.sin(t * 8) * 0.4;
-      this.updateLegPoints(this.leftLeg, -0.15 + leftLegKick * 0.3, -0.55 + Math.abs(leftLegKick) * 0.2);
+      this.leftLeg.rotation.z = Math.sin(t * 8) * 0.6 + 0.15;
+      this.rightLeg.rotation.z = Math.sin(t * 8 + Math.PI) * 0.6 - 0.15;
 
-      const rightLegKick = Math.sin(t * 8 + Math.PI) * 0.4;
-      this.updateLegPoints(this.rightLeg, 0.15 + rightLegKick * 0.3, -0.55 + Math.abs(rightLegKick) * 0.2);
+      // 脚跟随腿
+      this.leftFoot.position.x = -0.1 + Math.sin(this.leftLeg.rotation.z) * 0.25;
+      this.leftFoot.position.y = -0.15 - Math.abs(Math.sin(t * 8)) * 0.15;
+      this.rightFoot.position.x = 0.1 - Math.sin(this.rightLeg.rotation.z) * 0.25;
+      this.rightFoot.position.y = -0.15 - Math.abs(Math.sin(t * 8 + Math.PI)) * 0.15;
 
       // 偶尔转圈
       if (Math.sin(t * 0.5) > 0.8) {
@@ -817,26 +849,31 @@ class DancingPerson {
 
       // 身体扭动
       this.group.rotation.y = Math.sin(t * 3) * 0.3;
+      this.body.rotation.z = Math.sin(t * 4) * 0.08;
 
       // 手臂波浪舞
-      const wavePhase = t * 4;
-      this.updateArmPoints(this.leftArm,
-        -0.5 + Math.sin(wavePhase) * 0.2,
-        -0.2 + Math.sin(wavePhase + 1) * 0.3
-      );
-      this.updateArmPoints(this.rightArm,
-        0.5 + Math.sin(wavePhase + 2) * 0.2,
-        -0.2 + Math.sin(wavePhase + 3) * 0.3
-      );
+      this.leftArm.rotation.z = Math.sin(t * 4) * 0.6 + 1.0;
+      this.rightArm.rotation.z = Math.sin(t * 4 + 2) * 0.6 - 1.0;
+
+      // 手跟随
+      this.leftHand.position.x = -0.2 + Math.sin(this.leftArm.rotation.z) * 0.4;
+      this.leftHand.position.y = 0.85 - Math.cos(this.leftArm.rotation.z) * 0.35;
+      this.rightHand.position.x = 0.2 - Math.sin(this.rightArm.rotation.z) * 0.4;
+      this.rightHand.position.y = 0.85 + Math.cos(this.rightArm.rotation.z) * 0.35;
 
       // 腿部交替抬起
-      const leftUp = Math.max(0, Math.sin(t * 6)) * 0.3;
-      const rightUp = Math.max(0, Math.sin(t * 6 + Math.PI)) * 0.3;
-      this.updateLegPoints(this.leftLeg, -0.2, -0.55 + leftUp);
-      this.updateLegPoints(this.rightLeg, 0.2, -0.55 + rightUp);
+      this.leftLeg.rotation.z = Math.max(0, Math.sin(t * 6)) * 0.4 + 0.1;
+      this.rightLeg.rotation.z = Math.max(0, Math.sin(t * 6 + Math.PI)) * 0.4 - 0.1;
+
+      // 脚跟随
+      const leftUp = Math.max(0, Math.sin(t * 6)) * 0.2;
+      const rightUp = Math.max(0, Math.sin(t * 6 + Math.PI)) * 0.2;
+      this.leftFoot.position.y = -0.15 + leftUp;
+      this.rightFoot.position.y = -0.15 + rightUp;
 
       // 头部轻微摇动
-      this.head.rotation.z = Math.sin(t * 5) * 0.15;
+      this.head.rotation.z = Math.sin(t * 5) * 0.12;
+      this.headRing.rotation.z = Math.sin(t * 5) * 0.12;
     }
   }
 }
@@ -846,7 +883,7 @@ function createDancers() {
   dancers.forEach(d => scene.remove(d.group));
   dancers = [];
 
-  // 创建两个跳舞小人
+  // 默认创建两个跳舞小人（如果照片存在）
   // cjs - 左边，红色衣服，舞蹈风格1（疯狂蹦跳）
   const dancer1 = new DancingPerson('./cjs.jpg', -2.5, 4, 0xcc2222, 1);
   dancers.push(dancer1);
@@ -854,6 +891,76 @@ function createDancers() {
   // wb - 右边，绿色衣服，舞蹈风格2（扭动波浪）
   const dancer2 = new DancingPerson('./wb.jpg', 2.5, 4, 0x22aa22, 2);
   dancers.push(dancer2);
+}
+
+// 用户上传照片处理
+let uploadedDancerCount = 0;
+const dancerColors = [0xff6666, 0x66ff66, 0x6666ff, 0xffff66, 0xff66ff, 0x66ffff, 0xffaa00, 0xaa00ff];
+
+// 压缩图片到指定尺寸
+function compressImage(file, maxSize = 256) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const img = new Image();
+      img.onload = function() {
+        // 创建 canvas 压缩图片
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // 计算缩放比例，保持正方形裁剪
+        const size = Math.min(img.width, img.height);
+        const sx = (img.width - size) / 2;
+        const sy = (img.height - size) / 2;
+
+        canvas.width = maxSize;
+        canvas.height = maxSize;
+
+        // 裁剪为正方形并缩放
+        ctx.drawImage(img, sx, sy, size, size, 0, 0, maxSize, maxSize);
+
+        // 转为 base64，质量 0.7
+        const compressedUrl = canvas.toDataURL('image/jpeg', 0.7);
+        resolve(compressedUrl);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function handlePhotoUpload(event) {
+  const files = event.target.files;
+  if (!files || files.length === 0) return;
+
+  Array.from(files).forEach(async (file) => {
+    if (!file.type.startsWith('image/')) return;
+
+    // 压缩图片到 256x256
+    const compressedUrl = await compressImage(file, 256);
+    addNewDancer(compressedUrl);
+  });
+
+  // 清空 input 以便可以再次选择相同文件
+  event.target.value = '';
+}
+
+function addNewDancer(imageUrl) {
+  // 计算新小人的位置（围绕树的前方半圆分布）
+  const totalDancers = dancers.length;
+  const angle = (Math.PI / 6) * (totalDancers % 6 - 2.5); // -75° 到 75° 分布
+  const distance = 4 + Math.floor(totalDancers / 6) * 1.5; // 多排时往后站
+
+  const posX = Math.sin(angle) * distance;
+  const posZ = Math.cos(angle) * distance;
+
+  // 随机选择颜色和舞蹈风格
+  const color = dancerColors[uploadedDancerCount % dancerColors.length];
+  const danceStyle = (uploadedDancerCount % 2) + 1;
+
+  const newDancer = new DancingPerson(imageUrl, posX, posZ, color, danceStyle);
+  dancers.push(newDancer);
+  uploadedDancerCount++;
 }
 
 // ============ 礼物盒 ============
