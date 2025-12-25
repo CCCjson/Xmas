@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>🎄 圣诞树</title>
+  <style>
+    body{
+      margin:0; height:100vh; display:flex; align-items:center; justify-content:center;
+      background: radial-gradient(circle at top, #0b2447, #041526);
+      color:#e8f1ff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      overflow:hidden;
+    }
+    .wrap{ text-align:center; }
+    canvas{ width:min(92vw,520px); height:min(92vw,520px); }
+    .tip{ opacity:.85; margin-top:10px; font-size:14px; }
+    .btns{ margin-top:12px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap;}
+    button{
+      border:1px solid rgba(255,255,255,.25); background:rgba(255,255,255,.08);
+      color:#e8f1ff; padding:10px 14px; border-radius:10px; font-size:14px;
+    }
+    button:active{ transform:scale(.98); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <canvas id="c" width="520" height="520"></canvas>
+    <div class="btns">
+      <button id="regen">✨ 换一棵</button>
+      <button id="toggle">⏸ 暂停</button>
+    </div>
+    <div class="tip">把这个文件发到手机：微信/QQ/隔空投送 → 用浏览器打开即可</div>
+  </div>
+
+<script>
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+let running = true;
+
+function rand(a,b){ return a + Math.random()*(b-a); }
+function randi(a,b){ return Math.floor(rand(a,b+1)); }
+
+const colors = ["#ff4d4d","#ffd93d","#4dff88","#4dd2ff","#b84dff","#ffffff"];
+
+let snow = [];
+function initSnow(){
+  snow = Array.from({length: 140}, () => ({
+    x: rand(0, canvas.width),
+    y: rand(0, canvas.height),
+    r: rand(0.8, 2.4),
+    v: rand(0.4, 1.6),
+    w: rand(-0.6, 0.6),
+    a: rand(0.35, 0.9),
+  }));
+}
+
+let lights = [];
+function initLights(){
+  lights = [];
+  const cx = canvas.width/2;
+  const topY = 80;
+  const height = 300;
+  const layers = 14;
+
+  for(let i=0;i<layers;i++){
+    const y = topY + i*(height/layers);
+    const half = 18 + i*12;
+    const n = randi(3, 7);
+    for(let k=0;k<n;k++){
+      const x = cx + rand(-half, half);
+      lights.push({
+        x,y,
+        r: rand(3.2, 5.2),
+        c: colors[randi(0, colors.length-1)],
+        phase: rand(0, Math.PI*2),
+        spd: rand(0.02, 0.06),
+      });
+    }
+  }
+}
+
+function draw(){
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0,0,w,h);
+
+  // background glow
+  const g = ctx.createRadialGradient(w/2, 110, 10, w/2, 110, 260);
+  g.addColorStop(0, "rgba(255,255,255,0.12)");
+  g.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0,0,w,h);
+
+  // snow
+  for(const s of snow){
+    ctx.globalAlpha = s.a;
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // star
+  const cx = w/2;
+  ctx.save();
+  ctx.translate(cx, 55);
+  ctx.fillStyle = "#ffd93d";
+  ctx.shadowColor = "rgba(255,217,61,0.8)";
+  ctx.shadowBlur = 18;
+  ctx.beginPath();
+  for(let i=0;i<10;i++){
+    const ang = i*Math.PI/5;
+    const rr = (i%2===0)? 18 : 7;
+    ctx.lineTo(Math.cos(ang)*rr, Math.sin(ang)*rr);
+  }
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+
+  // tree body
+  const topY = 80;
+  const bottomY = 380;
+  ctx.fillStyle = "#1fcf6a";
+  ctx.beginPath();
+  ctx.moveTo(cx, topY);
+  ctx.lineTo(cx-220, bottomY);
+  ctx.lineTo(cx+220, bottomY);
+  ctx.closePath();
+  ctx.fill();
+
+  // tree shading
+  ctx.fillStyle = "rgba(0,0,0,0.12)";
+  ctx.beginPath();
+  ctx.moveTo(cx, topY);
+  ctx.lineTo(cx+220, bottomY);
+  ctx.lineTo(cx, bottomY);
+  ctx.closePath();
+  ctx.fill();
+
+  // garland
+  ctx.strokeStyle = "rgba(255,255,255,0.18)";
+  ctx.lineWidth = 5;
+  for(let i=0;i<6;i++){
+    const y = topY + 45 + i*42;
+    const half = 50 + i*28;
+    ctx.beginPath();
+    ctx.moveTo(cx-half, y);
+    ctx.quadraticCurveTo(cx, y+18, cx+half, y);
+    ctx.stroke();
+  }
+
+  // lights
+  for(const L of lights){
+    const glow = 0.35 + 0.65*Math.sin(L.phase);
+    ctx.globalAlpha = 0.45 + 0.55*glow;
+
+    ctx.fillStyle = L.c;
+    ctx.shadowColor = L.c;
+    ctx.shadowBlur = 14;
+    ctx.beginPath();
+    ctx.arc(L.x, L.y, L.r, 0, Math.PI*2);
+    ctx.fill();
+
+    ctx.shadowBlur = 0;
+  }
+  ctx.globalAlpha = 1;
+
+  // trunk
+  ctx.fillStyle = "#9b5a2e";
+  ctx.fillRect(cx-26, 380, 52, 70);
+  ctx.fillStyle = "rgba(0,0,0,0.18)";
+  ctx.fillRect(cx, 380, 26, 70);
+
+  // gifts
+  function gift(x,y,c1,c2){
+    ctx.fillStyle=c1; ctx.fillRect(x,y,60,45);
+    ctx.fillStyle=c2; ctx.fillRect(x+26,y,8,45);
+    ctx.fillRect(x,y+18,60,8);
+    ctx.fillStyle="#fff"; ctx.globalAlpha=0.9;
+    ctx.fillRect(x+6,y+6,48,6);
+    ctx.globalAlpha=1;
+  }
+  gift(cx-150, 450, "#ff4d4d","#ffd93d");
+  gift(cx-20,  450, "#4dd2ff","#ffffff");
+  gift(cx+110, 450, "#b84dff","#4dff88");
+
+  // text
+  ctx.fillStyle="rgba(255,255,255,0.9)";
+  ctx.font="20px system-ui, -apple-system, Segoe UI, Roboto";
+  ctx.textAlign="center";
+  ctx.fillText("Merry Christmas 🎅✨", cx, 510);
+}
+
+function tick(){
+  if(running){
+    // animate snow + blink
+    for(const s of snow){
+      s.y += s.v;
+      s.x += s.w;
+      if(s.y > canvas.height+5){ s.y = -5; s.x = rand(0, canvas.width); }
+      if(s.x < -10) s.x = canvas.width+10;
+      if(s.x > canvas.width+10) s.x = -10;
+    }
+    for(const L of lights){
+      L.phase += L.spd;
+    }
+    draw();
+  }
+  requestAnimationFrame(tick);
+}
+
+document.getElementById("regen").onclick = () => { initSnow(); initLights(); draw(); };
+document.getElementById("toggle").onclick = (e) => {
+  running = !running;
+  e.target.textContent = running ? "⏸ 暂停" : "▶️ 继续";
+};
+
+initSnow();
+initLights();
+draw();
+tick();
+</script>
+</body>
+</html>
